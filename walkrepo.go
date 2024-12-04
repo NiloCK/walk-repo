@@ -38,6 +38,7 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 				ps = append(ps, filePatterns...)
 			}
 		}
+		matcher := gitignore.NewMatcher(ps)
 
 		// Then process all other files
 		for _, file := range files {
@@ -46,7 +47,6 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 			}
 
 			filePath := filepath.Join(path, file.Name())
-			matcher := gitignore.NewMatcher(ps)
 
 			if !matcher.Match(domain, file.IsDir()) {
 				err := walkFn(filePath, file, nil)
