@@ -14,7 +14,9 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 	var ps []gitignore.Pattern
 	domain := []string{}
 
-	walk := func(path string, domain []string, patterns []gitignore.Pattern) error {
+	var walk func(string, []string, []gitignore.Pattern) error
+
+	walk = func(path string, domain []string, patterns []gitignore.Pattern) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err
