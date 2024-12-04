@@ -14,8 +14,7 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 	var ps []gitignore.Pattern
 	domain := []string{}
 
-	var walk func(string, []string, []gitignore.Pattern) error
-	walk = func(path string, domain []string, patterns []gitignore.Pattern) error {
+	walk := func(path string, domain []string, patterns []gitignore.Pattern) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -41,18 +40,24 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 				localPatterns = append(localPatterns, filePatterns...)
 			}
 		}
-
-		// Then process all other files
 		matcher := gitignore.NewMatcher(localPatterns)
 
+		// Then process all other files
 		for _, file := range files {
 			if file.Name() == ".gitignore" {
 				continue
 			}
 
 			filePath := filepath.Join(path, file.Name())
+			// Get relative path components for matching
+			relPath, err := filepath.Rel(root, filePath)
+			if err != nil {
+				return err
+			}
+			pathComponents := strings.Split(relPath, string(filepath.Separator))
+			isIgnored := matcher.Match(pathComponents, file.IsDir())
 
-			if !matcher.Match(domain, file.IsDir()) {
+			if !isIgnored {
 				err := walkFn(filePath, file, nil)
 				if err != nil {
 					if err == filepath.SkipDir && file.IsDir() {
@@ -97,8 +102,9 @@ func parseFilePatterns(path string, domain []string) ([]gitignore.Pattern, error
 		if rawPattern == "" || strings.HasPrefix(rawPattern, "#") {
 			continue
 		}
+		pattern := gitignore.ParsePattern(rawPattern, domain)
 
-		filePatterns = append(filePatterns, gitignore.ParsePattern(rawPattern, domain))
+		filePatterns = append(filePatterns, pattern)
 	}
 	return filePatterns, nil
 }
