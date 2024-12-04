@@ -14,8 +14,8 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 	var ps []gitignore.Pattern
 	domain := []string{}
 
-	var walk func(string, []string) error
-	walk = func(path string, domain []string) error {
+	var walk func(string, []string, []gitignore.Pattern) error
+	walk = func(path string, domain []string, patterns []gitignore.Pattern) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -28,6 +28,9 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 		}
 
 		// First, check for .gitignore in this directory and process it
+		localPatterns := make([]gitignore.Pattern, len(patterns))
+		copy(localPatterns, patterns)
+
 		for _, file := range files {
 			if file.Name() == ".gitignore" {
 				filePath := filepath.Join(path, file.Name())
@@ -35,15 +38,16 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 				if err != nil {
 					return err
 				}
-				ps = append(ps, filePatterns...)
+				localPatterns = append(localPatterns, filePatterns...)
 			}
 		}
-		matcher := gitignore.NewMatcher(ps)
 
 		// Then process all other files
+		matcher := gitignore.NewMatcher(localPatterns)
+
 		for _, file := range files {
 			if file.Name() == ".gitignore" {
-				continue // Skip .gitignore files as we've already processed them
+				continue
 			}
 
 			filePath := filepath.Join(path, file.Name())
@@ -59,7 +63,7 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 
 				if file.IsDir() {
 					newDomain := append(domain, file.Name())
-					err := walk(filePath, newDomain)
+					err := walk(filePath, newDomain, localPatterns)
 					if err != nil {
 						return err
 					}
@@ -70,7 +74,7 @@ func WalkRepo(root string, walkFn filepath.WalkFunc) error {
 		return nil
 	}
 
-	return walk(root, domain)
+	return walk(root, domain, ps)
 }
 
 // parseFilePatterns parses the .gitignore file and returns a list of gitignore.Patterns.
